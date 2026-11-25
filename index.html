@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Construction Forms Manager</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{--bg:#eceee9;--pn:#fff;--ink:#1c2523;--mut:#5d6965;--ln:#cfd4cf;--ac:#e5ad15;--dk:#22302d;--ok:#2f7d4f;--bad:#b3392c;--blu:#2b5f8a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161c1b;--pn:#1f2826;--ink:#e8ece9;--mut:#9aa7a2;--ln:#37433f;--dk:#0f1514;color-scheme:dark}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "Segoe UI",system-ui,Helvetica,Arial,sans-serif}
+header{background:var(--dk);color:#fff;padding:14px 20px;border-bottom:4px solid var(--ac)}
+header h1{margin:0;font-size:19px;font-weight:700}header p{margin:2px 0 0;color:#b9c4c0;font-size:12.5px}
+main{max-width:1280px;margin:auto;padding:16px}
+.pn{background:var(--pn);border:1px solid var(--ln);border-radius:6px;padding:14px;margin-bottom:14px}
+.pn h2{margin:0 0 8px;font-size:15px}
+button,select,input,textarea{font:inherit;color:inherit}
+button{background:var(--dk);color:#fff;border:0;border-radius:4px;padding:8px 12px;cursor:pointer;font-weight:600}
+button.pri{background:var(--ac);color:#1c2523}button.sec{background:transparent;color:var(--ink);border:1px solid var(--ln)}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--blu);outline-offset:1px}
+input,select,textarea{background:var(--pn);border:1px solid var(--ln);border-radius:4px;padding:6px 8px}
+textarea{width:100%;min-height:110px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.k{border:1px solid var(--ln);border-left:5px solid var(--ac);padding:8px 10px;border-radius:4px}
+.k b{display:block;font-size:22px}.k span{color:var(--mut);font-size:12px}
+.bar{height:8px;background:var(--ln);border-radius:4px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--ok)}
+.tabs{display:flex;gap:4px;margin-bottom:10px;flex-wrap:wrap}.tabs button{background:var(--pn);color:var(--ink);border:1px solid var(--ln)}.tabs button.on{background:var(--dk);color:#fff;border-color:var(--dk)}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:1100px}
+th,td{border-bottom:1px solid var(--ln);padding:6px;text-align:left;vertical-align:top;font-size:12.5px}th{background:var(--bg);position:sticky;top:0}
+.tag{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11.5px;font-weight:700;background:var(--ln)}
+.A{background:#d9ecdf;color:#1d5a37}.B{background:#d8e6f2;color:#1f4d73}.C{background:#eee3c4;color:#6b5410}.V{background:#f3d6d2;color:#8a2a20}
+.mut{color:var(--mut)}.warn{border-left:5px solid var(--bad);background:#f3d6d230;padding:6px 10px;margin:6px 0}
+#modal{position:fixed;inset:0;background:#000a;display:none;align-items:flex-start;justify-content:center;overflow:auto;z-index:9;padding:16px}
+#modal .box{background:#fff;color:#111;max-width:820px;width:100%;border-radius:6px;padding:18px}
+.form h3{margin:0 0 6px}.form table{min-width:0}.form td,.form th{border:1px solid #999;font-size:13px;color:#111;background:#fff}.form th{width:28%;background:#eee;position:static}
+.form [contenteditable]{min-height:20px;outline:0}.form [contenteditable]:focus{background:#fff8d6}
+@media print{body *{visibility:hidden}#modal,#modal *{visibility:visible}#modal{position:absolute;inset:0;background:#fff;display:block;padding:0}.noprint{display:none!important}}
+</style></head><body>
+<header><h1>Construction Forms Manager</h1><p>Upload a solicitation or contract, find the required forms, and track them from pre-construction to closeout. Runs only in this browser.</p></header>
+<main>
+<section class="pn"><h2>1. Source documents</h2>
+<div class="row"><button class="pri" onclick="srcf.click()">SOURCE DOCUMENT – UPLOAD &amp; ANALYZE</button>
+<input id="srcf" type="file" multiple accept=".pdf,.docx,.xlsx,.csv,.txt" hidden>
+<span id="srcs" class="mut">No documents analyzed yet.</span></div>
+<div id="proj" class="grid" style="margin-top:10px"></div><div id="std"></div>
+<h2 style="margin-top:12px">Additional project requirements &amp; instructions</h2>
+<textarea id="instr" placeholder="Type or paste project-specific requirements or preferred procedures. Example: Daily Construction Report is not required."></textarea>
+<div class="row" style="margin-top:6px"><button class="sec" onclick="analyzeInstr()">Apply instructions</button><span class="mut">Conflicts with the source document are flagged below.</span></div>
+<div id="conf"></div></section>
+
+<section class="pn"><h2>2. Dashboard</h2><div id="dash" class="grid"></div></section>
+
+<section class="pn"><div class="row" style="justify-content:space-between"><div class="tabs" id="tabs"></div>
+<div class="row"><button class="pri" onclick="genForms()">GENERATE REQUIRED FORMS</button><button class="sec" onclick="addItem()">Add form</button><button class="sec" onclick="xl()">Export registers to Excel</button></div></div>
+<div class="row" style="margin-bottom:8px">
+<input id="q" placeholder="Search" oninput="render()"><select id="fp" onchange="render()"></select><select id="fs" onchange="render()"></select>
+<select id="fc" onchange="render()"><option value="">All classes</option><option>A</option><option>B</option><option>C</option></select>
+<select id="fd" onchange="render()"><option value="">Any due date</option><option value="over">Overdue</option></select></div>
+<div id="gen"></div>
+<div class="tw"><table><thead><tr><th>Form or document</th><th>Class</th><th>Requirement</th><th>Source reference</th><th>Responsible</th><th>Stage / trigger</th><th>Approval</th><th>Due</th><th>Status</th><th>Next action</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+<p id="empty" class="mut" hidden>No items yet. Upload a source document, or add a form by hand.</p></section>
+
+<section class="pn"><h2>3. Data and security</h2>
+<div class="row"><button class="sec" onclick="bk()">Download backup</button><button class="sec" onclick="rs.click()">Restore backup</button><input id="rs" type="file" accept=".json" hidden><button class="sec" onclick="del()">Delete all local data</button></div>
+<p class="mut">Documents are read in your browser and never uploaded. Only the extracted register is saved in this browser's local storage. Local storage is not encrypted: anyone with access to this device or browser profile, or malware on it, can read it. Use a locked device and keep backups somewhere safe.</p></section>
+</main>
+<div id="modal"><div class="box"><div class="row noprint" style="margin-bottom:8px"><button onclick="saveForm()">Save draft</button><button class="sec" onclick="window.print()">Print / PDF</button><button class="sec" onclick="wordF()">Export Word</button><button class="sec" onclick="modal.style.display='none'">Close</button></div><div id="fm" class="form"></div></div></div>
+<script>
+const TABS=["Pre-construction","During construction","Post-construction & closeout","Procurement"];
+const ST=["Not Started","In Progress","Ready for Submission","Submitted","Under Review","Approved","Requires Revision","Completed","Not Applicable"];
+const DONE=["Approved","Completed","Not Applicable"];
+// stage|name|keyword regex|responsible|class if not found in source|approval
+const R=`0|Notice of Award|notice of award|Owner|B|Owner
+0|Executed Contract Agreement|agreement|Owner / Contractor|B|Owner
+0|Notice to Proceed|notice to proceed|Owner|B|Owner
+0|Insurance Certificates|insurance|Contractor|B|Owner
+0|Performance Bond|performance bond|Contractor|B|Owner
+0|Labour and Material Payment Bond|payment bond|Contractor|B|Owner
+0|Workers' Compensation Clearance|workers.? compensation|wcb|wscc|Contractor|B|Compensation board
+0|Contractor Project Schedule|schedule|Contractor|B|Consultant
+0|Health and Safety Plan|safety plan|health and safety|Contractor|B|Owner
+0|Traffic Management Plan|traffic|Contractor|C|Owner
+0|Environmental Protection Plan|environmental|Contractor|C|Consultant
+0|Quality Control Plan|quality (control|management)|Contractor|C|Consultant
+0|Emergency Response Plan|emergency|Contractor|C|Owner
+0|Subcontractor List|subcontract|Contractor|B|Owner
+0|Permits and Authorizations|permit|Contractor|B|Authority
+0|Shop Drawings and Material Submittals|shop drawing|submittal|Contractor|B|Consultant
+0|Pre-Construction Meeting Minutes|pre-?construction meeting|Consultant|B|All parties
+0|Utility Locates and Coordination Records|utilit|locate|Contractor|C|Consultant
+0|Existing Condition Photographs|photograph|Contractor|C|Consultant
+1|Daily Construction Report|daily (construction )?report|daily log|Inspector|B|Owner
+1|Weekly Progress Report|weekly|progress report|Contractor|B|Consultant
+1|Site Inspection Report|inspection|Inspector|B|Consultant
+1|Construction Meeting Minutes|progress meeting|site meeting|Consultant|B|All parties
+1|Request for Information (RFI)|request for information|\\bRFI\\b|Contractor|B|Consultant
+1|Change Order|change order|Owner / Contractor|B|Owner
+1|Site Instruction|site instruction|Consultant|B|Owner
+1|Progress Payment Application|progress payment|payment certificate|Contractor|B|Consultant / Owner
+1|Schedule Update|schedule update|Contractor|C|Consultant
+1|Non-Conformance Report|non-?conform|Inspector|C|Consultant
+1|Deficiency and Punch List|deficienc|punch list|Inspector|B|Consultant
+1|Inspection and Testing Reports|testing|test report|Testing agency|B|Consultant
+1|Safety Inspection Report|safety inspection|Contractor|C|Owner
+1|Incident and Accident Report|incident|accident|Contractor|C|Owner
+1|Photographic Site Documentation|progress photo|photograph|Inspector|C|Consultant
+1|Contractor Correspondence Register|correspondence|Consultant|C|None
+2|Substantial Completion Inspection Report|substantial (completion|performance)|Consultant|B|Owner
+2|Completion Certificate|certificate of (substantial )?completion|completion certificate|Consultant|B|Owner
+2|Final Inspection Report|final inspection|Consultant|B|Owner
+2|Final Deficiency List and Verification|final deficienc|Inspector|B|Consultant
+2|Final Acceptance Certificate|final acceptance|total performance|Owner|B|Owner
+2|As-Built / Record Drawings|as-?built|record drawing|Contractor|B|Consultant
+2|Operation and Maintenance Manuals|operation and maintenance|O&M|Contractor|B|Consultant
+2|Warranties|warrant|Contractor|B|Owner
+2|Statutory Declaration|statutory declaration|Contractor|B|Owner
+2|Workers' Compensation Final Clearance|final clearance|Contractor|B|Compensation board
+2|Final Invoice and Final Payment|final (invoice|payment)|Contractor|B|Owner
+2|Training and Handover Records|training|handover|Contractor|C|Owner
+2|Final Contract Closeout Report|closeout|close-out|Consultant|C|Owner
+3|Procurement Plan and Approval to Proceed|procurement (plan|approval)|approval to (proceed|tender)|Owner|C|Owner
+3|Solicitation Document (RFP / RFT / RFQ)|request for (proposals?|tenders?|quotations?)|invitation to (bid|tender)|Owner|B|Owner
+3|Addenda Register|addend|Owner|B|Owner
+3|Bidder Question and Clarification Log|clarification|bidder question|Owner|B|Owner
+3|Pre-Bid / Site Meeting Record|pre-?bid|site meeting|mandatory meeting|Owner|C|Owner
+3|Bid / Proposal Submission Form|submission form|form of (tender|bid|proposal)|Bidder|B|Owner
+3|Bid Security / Bid Bond|bid (bond|security|deposit)|Bidder|B|Owner
+3|Conflict of Interest and Non-Collusion Declaration|conflict of interest|collusion|Bidder|B|Owner
+3|Bid / Proposal Opening Record|bid opening|opening of (bids|proposals|tenders)|Owner|B|Owner
+3|Bid Compliance Checklist|mandatory requirement|compliance|Owner|B|Evaluation committee
+3|Evaluation Committee Confidentiality Declaration|evaluation committee|Owner|C|Owner
+3|Evaluation and Scoring Matrix|evaluation criteria|scoring|evaluat|Owner|B|Evaluation committee
+3|Reference Check Record|reference check|references|Owner|C|Evaluation committee
+3|Recommendation for Award Report|recommendation for award|award recommendation|Owner|B|Owner
+3|Notice of Intent to Award / Award Notice|notice of (intent|award)|intent to award|Owner|B|Owner
+3|Unsuccessful Bidder Notice and Debrief|unsuccessful|debrief|Owner|C|None
+3|Vendor Registration and Insurance Verification|vendor registration|business licen[cs]e|Owner|C|Owner
+3|Sole Source / Direct Award Justification|sole source|direct award|single source|Owner|C|Owner
+3|Procurement File Checklist|procurement file|Owner|C|Owner`.split("\n").map(l=>{const p=l.split("|");const st=+p[0],name=p[1],ap=p.pop(),cl=p.pop(),pty=p.pop();return{st,name,re:new RegExp(p.slice(2).join("|"),"i"),pty,cl,ap}});
+let S=load(),tab=0,cur=null;
+function load(){try{return JSON.parse(localStorage.getItem("cfm")||"")||fresh()}catch(e){return fresh()}}
+function fresh(){return{proj:{},items:[],srcs:[],instr:"",forms:{},n:1}}
+function save(){try{localStorage.setItem("cfm",JSON.stringify(S))}catch(e){alert("Could not save locally. Download a backup instead.")}}
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+srcf.onchange=async e=>{for(const f of e.target.files)await readDoc(f);e.target.value=""};
+async function readDoc(f){
+ const ext=f.name.split(".").pop().toLowerCase();let pages=[];
+ try{
+  if(ext=="docx"){pages=[(await mammoth.extractRawText({arrayBuffer:await f.arrayBuffer()})).value]}
+  else if(ext=="xlsx"){const wb=XLSX.read(await f.arrayBuffer());pages=wb.SheetNames.map(n=>"Sheet "+n+"\n"+XLSX.utils.sheet_to_csv(wb.Sheets[n]))}
+  else if(ext=="pdf"){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+   const d=await pdfjsLib.getDocument({data:await f.arrayBuffer()}).promise;
+   for(let i=1;i<=d.numPages;i++){const t=await(await d.getPage(i)).getTextContent();pages.push(t.items.map(x=>x.str+(x.hasEOL?"\n":" ")).join(""))}}
+  else pages=[await f.text()];
+ }catch(err){alert("Could not read "+f.name+". For PDFs that fail, save as .txt or .docx and upload again.");return}
+ const txt=pages.join("");if(txt.trim().length<20){alert(f.name+" has no readable text (scanned PDFs need OCR first).");return}
+ analyze(f.name,pages)}
+function analyze(name,pages){
+ const L=[];pages.forEach((p,i)=>p.split(/\n+/).forEach(t=>{t=t.trim();if(t)L.push({t,pg:pages.length>1?i+1:null})}));
+ const all=L.map(x=>x.t).join("\n"),P=S.proj;
+ const g=(re)=>{const m=all.match(re);return m?m[1].trim().slice(0,90):""};
+ P.name=P.name||g(/(?:project (?:name|title)|title)\s*[:\-]\s*(.+)/i);
+ P.contract=P.contract||g(/(?:contract|rfp|rft|tender|solicitation|project)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Z0-9\-\/\.]{3,})/i);
+ P.owner=P.owner||g(/(?:owner|client|issued by|city of)\s*[:\-]?\s*([A-Z][^\n]{2,50})/);
+ P.contractor=P.contractor||"";P.consultant=P.consultant||"";
+ S.srcs.push(name);let found=0;
+ S.std=S.std||[];const sre=/procurement (policy|standard|bylaw|directive|procedure)|trade agreement|CFTA|CETA|CPTPP|government contracts|purchasing (policy|bylaw)|lowest (compliant )?(bid|price)|\$\s?\d[\d,]{3,}.{0,40}(threshold|exceed|less than|greater than|over|under)|(threshold|exceed).{0,40}\$\s?\d[\d,]{3,}|open (competitive|tender)|invitational|sole.?source|local (preference|content)|evaluat\w+ (criteria|committee)|bid (security|bond)|addend/i;
+ L.forEach(x=>{if(sre.test(x.t)&&S.std.length<40&&!S.std.some(s=>s.t==x.t.slice(0,200)))S.std.push({src:name,pg:x.pg,t:x.t.slice(0,200)})});
+ const mc={};(all.match(/\b(RFP|RFT|RFQ|ITB|ITT)\b|request for (proposals?|tenders?|quotations?)/gi)||[]).forEach(m=>{m=m.toUpperCase();mc[m]=(mc[m]||0)+1});
+ const top=Object.entries(mc).sort((a,b)=>b[1]-a[1])[0];if(top)S.method=top[0];
+ R.forEach(r=>{
+  let hit=-1;for(let i=0;i<L.length;i++)if(r.re.test(L[i].t)){hit=i;break}
+  const ex=S.items.find(x=>x.name==r.name);
+  if(hit<0){if(!ex)S.items.push(mk(r,"",r.cl,"","","Not found in uploaded text. Standard practice; confirm it applies.",0));return}
+  let cl="";for(let j=hit;j>=0&&j>hit-60;j--)if(/^(section|part|article|clause|appendix|schedule|\d+(\.\d+)*[\.\)]?\s)/i.test(L[j].t)){cl=L[j].t.slice(0,60);break}
+  const line=L[hit].t,dm=line.match(/within\s+\d+\s+(?:calendar |business |working )?days[^.;]*/i);
+  const it=mk(r,name,"A",cl||"Clause not identified",L[hit].pg?"p. "+L[hit].pg:"",line.slice(0,220),dm?dm[0].slice(0,80):"",1);
+  if(ex&&ex.cls=="A"){return}
+  if(ex)S.items.splice(S.items.indexOf(ex),1);S.items.push(it);found++});
+ save();render();$("conf").innerHTML=confl()}
+function mk(r,src,cls,clause,pg,desc,due,fromSrc){
+ return{id:S.n++,name:r.name,st:r.st,cls,desc,src,clause,pg,pty:r.pty,when:due||"Requires Verification",ap:r.ap,status:"Not Started",next:cls=="A"?"Review clause and prepare form":"Decide if needed for this contract",date:"",verify:cls=="A"&&(!clause||clause.startsWith("Clause not"))||!fromSrc&&0}}
+function addItem(){const n=prompt("Form or document name");if(!n)return;S.items.push({id:S.n++,name:n,st:tab,cls:"C",desc:"Added by user",src:"",clause:"",pg:"",pty:"",when:"",ap:"",status:"Not Started",next:"",date:""});save();render()}
+function analyzeInstr(){S.instr=instr.value;save();$("conf").innerHTML=confl()}
+function confl(){
+ const t=(S.instr||"").toLowerCase(),out=[];if(!t)return"";
+ S.items.forEach(i=>{if(i.cls!="A")return;const key=i.name.toLowerCase().split(/[ \/(]/)[0]+"";const n=i.name.toLowerCase().replace(/\(.*\)/,"").trim();
+  const re=new RegExp("("+n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+")[^.\\n]{0,60}(not required|waive|omit|optional|not needed)|(not required|waive|omit|skip)[^.\\n]{0,60}"+n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&"));
+  if(re.test(t))out.push(`<div class="warn"><b>Conflict to review:</b> your instructions say "${esc(i.name)}" may not be needed, but the source document requires it (${esc(i.clause)}).</div>`)});
+ return out.join("")}
+function vis(){const q=$("q").value.toLowerCase(),p=fp.value,s=fs.value,c=fc.value,d=fd.value,td=new Date().toISOString().slice(0,10);
+ return S.items.filter(i=>i.st==tab&&(!q||JSON.stringify(i).toLowerCase().includes(q))&&(!p||i.pty==p)&&(!s||i.status==s)&&(!c||i.cls==c)&&(!d||(i.date&&i.date<td&&!DONE.includes(i.status))))}
+function render(){
+ instr.value=S.instr||"";
+ $("tabs").innerHTML=TABS.map((t,i)=>`<button class="${i==tab?"on":""}" onclick="tab=${i};render()">${t} (${S.items.filter(x=>x.st==i&&x.status!="Not Applicable").length})</button>`).join("");
+ const pt=[...new Set(S.items.map(i=>i.pty).filter(Boolean))];
+ const pv=fp.value,sv=fs.value;fp.innerHTML='<option value="">All parties</option>'+pt.map(x=>`<option>${esc(x)}</option>`).join("");fp.value=pv;
+ fs.innerHTML='<option value="">All statuses</option>'+ST.map(x=>`<option>${x}</option>`).join("");fs.value=sv;
+ $("std").innerHTML=(S.std&&S.std.length)?`<details open style="margin-top:10px"><summary><b>Procurement standards found in the source (${S.std.length})</b>${S.method?" · method mentioned: "+esc(S.method):""}</summary>`+S.std.map(s=>`<div class="warn" style="border-color:var(--blu)">${esc(s.t)}<br><span class="mut">${esc(s.src)} ${s.pg?"p. "+s.pg:""} · Requires Verification against the governing procurement policy</span></div>`).join("")+`</details>`:"";
+ $("srcs").textContent=S.srcs.length?"Analyzed: "+S.srcs.join(", "):"No documents analyzed yet.";
+ const F=[["name","Project name"],["contract","Contract no."],["owner","Owner / client"],["contractor","Contractor"],["consultant","Consultant"]];
+ $("proj").innerHTML=F.map(([k,l])=>`<label class="mut">${l}<input style="width:100%" value="${esc(S.proj[k])}" onchange="S.proj['${k}']=this.value;save()"></label>`).join("");
+ const rows=vis();$("empty").hidden=S.items.length>0;
+ $("tb").innerHTML=rows.map(i=>`<tr><td><input value="${esc(i.name)}" onchange="ed(${i.id},'name',this.value)"></td>
+ <td><span class="tag ${i.cls}" title="${{A:"Required by source document",B:"Commonly used form",C:"Recommended record"}[i.cls]}">${i.cls}</span>${i.cls=="A"&&i.verify?' <span class="tag V">Requires Verification</span>':""}</td>
+ <td>${esc(i.desc)}</td><td>${i.src?esc(i.src)+"<br>"+esc(i.clause)+" "+esc(i.pg):'<span class="mut">None</span>'}${i.src?`<br><button class="sec" onclick="showSrc(${i.id})">View</button>`:""}</td>
+ <td><input value="${esc(i.pty)}" onchange="ed(${i.id},'pty',this.value)" size="12"></td><td>${esc(TABS[i.st])}<br><span class="${i.when=="Requires Verification"?"tag V":"mut"}">${esc(i.when)}</span></td><td>${esc(i.ap)}</td>
+ <td><input type="date" value="${i.date}" onchange="ed(${i.id},'date',this.value)"></td>
+ <td><select onchange="ed(${i.id},'status',this.value)">${ST.map(s=>`<option ${s==i.status?"selected":""}>${s}</option>`).join("")}</select></td>
+ <td><input value="${esc(i.next)}" onchange="ed(${i.id},'next',this.value)"></td>
+ <td><button class="sec" onclick="openF(${i.id})">Form</button> <button class="sec" onclick="rm(${i.id})" aria-label="Remove">✕</button></td></tr>`).join("");
+ dash()}
+function ed(id,k,v){const i=S.items.find(x=>x.id==id);i[k]=v;save();if(k=="status"||k=="date")dash()}
+function rm(id){if(confirm("Remove this form from the register?")){S.items=S.items.filter(x=>x.id!=id);save();render()}}
+function dash(){const a=S.items.filter(i=>i.status!="Not Applicable"),td=new Date().toISOString().slice(0,10),dn=x=>DONE.includes(x.status);
+ const c=f=>a.filter(f).length,ov=c(i=>i.date&&i.date<td&&!dn(i));
+ const rd=n=>{const z=a.filter(i=>i.st==n);return z.length?Math.round(z.filter(dn).length/z.length*100):0};
+ const k=(v,l)=>`<div class="k"><b>${v}</b><span>${l}</span></div>`,b=(n,l)=>`<div class="k"><b>${rd(n)}%</b><span>${l}</span><div class="bar"><i style="width:${rd(n)}%"></i></div></div>`;
+ $("dash").innerHTML=k(a.length,"Total forms")+k(c(dn),"Completed or approved")+k(c(i=>!dn(i)),"Outstanding")+k(c(i=>i.status=="Ready for Submission"),"Awaiting submission")+k(c(i=>["Submitted","Under Review"].includes(i.status)),"Awaiting approval")+k(ov,"Overdue")+k(c(i=>i.cls=="A"),"Required by source (A)")+b(0,"Pre-construction ready")+b(1,"Construction documentation")+b(2,"Closeout status")+b(3,"Procurement status")}
+function showSrc(id){const i=S.items.find(x=>x.id==id);alert(`${i.src}\n${i.clause} ${i.pg}\n\n"${i.desc}"`)}
+const OFFICIAL=/permit|certificate|bond|insurance|compensation|clearance|declaration|notice|security|submission form|award/i;
+function genForms(){const A=S.items.filter(i=>(i.cls=="A"||i.st==3)&&i.status!="Not Applicable");if(!A.length){alert("No source-required forms yet. Upload and analyze a document first.");return}
+ A.forEach(i=>S.forms[i.id]=S.forms[i.id]||{});save();
+ $("gen").innerHTML=`<div class="warn" style="border-color:var(--ok)"><b>${A.length} draft forms prepared.</b> Open any row's Form button to edit, save, print or export. ${A.filter(i=>OFFICIAL.test(i.name)).length} items look like official or third-party documents: upload the official version where one exists.</div>`}
+function openF(id){cur=S.items.find(x=>x.id==id);const P=S.proj,sv=(S.forms[id]||{}).html;
+ const off=OFFICIAL.test(cur.name)?'<p><b>DRAFT FOR REVIEW.</b> This is not an official form. If the contract names a specific official form, use that version instead.</p>':"";
+ const r=(l,v)=>`<tr><th>${l}</th><td contenteditable>${esc(v)}</td></tr>`;
+ fm.innerHTML=sv||`<h3>${esc(cur.name)}</h3>${off}<table>${r("Project name",P.name)+r("Contract number",P.contract)+r("Owner / client",P.owner)+r("Contractor",P.contractor)+r("Consultant",P.consultant)+r("Date",new Date().toISOString().slice(0,10))+r("Document number",cur.name.split(" ").map(w=>w[0]).join("").toUpperCase().slice(0,4)+"-001")+r("Revision","0")+r("Description",cur.desc)+r("Source requirement",cur.src?cur.src+", "+cur.clause+" "+cur.pg:"Not from source document")+(cur.st==3?r("Procurement method",S.method||"Requires Verification")+r("Solicitation number",P.contract)+r("Closing date / time","")+r("Bidder / proponent","")+r("Governing procurement standard / clause","See standards panel; confirm against the procurement policy")+r("Evaluation criteria / threshold",""):"")+r("Details","")+r("Prepared by","")+r("Reviewed by","")+r("Approved by","")+r("Signature / date","")}</table>`;
+ modal.style.display="flex"}
+function saveForm(){S.forms[cur.id]={html:fm.innerHTML};save();alert("Draft saved.")}
+function wordF(){const h="<html><meta charset='utf-8'><body>"+fm.innerHTML+"</body></html>";dl(new Blob([h],{type:"application/msword"}),cur.name+".doc")}
+function dl(b,n){const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=n;a.click()}
+function xl(){const wb=XLSX.utils.book_new();TABS.forEach((t,n)=>{const d=S.items.filter(i=>i.st==n).map(i=>({Form:i.name,Class:i.cls,Requirement:i.desc,Source:i.src,Clause:i.clause,Page:i.pg,Responsible:i.pty,Trigger:i.when,Approval:i.ap,Due:i.date,Status:i.status,Next:i.next}));XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(d),t.replace(/[^\w ]/g,"").slice(0,30))});XLSX.writeFile(wb,"forms-register.xlsx")}
+function bk(){dl(new Blob([JSON.stringify(S)],{type:"application/json"}),"forms-backup.json")}
+rs.onchange=async e=>{try{S=JSON.parse(await e.target.files[0].text());save();render()}catch(x){alert("That file is not a valid backup.")}};
+function del(){if(confirm("Delete all projects and forms saved in this browser?")){localStorage.removeItem("cfm");S=fresh();render();$("conf").innerHTML="";$("gen").innerHTML=""}}
+render();
+</script></body></html>
